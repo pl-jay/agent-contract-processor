@@ -1,0 +1,84 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vendor-contract-agent
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5678,http://localhost:3000,http://127.0.0.1:3000}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      EXTRACTION_MODEL: ${EXTRACTION_MODEL}
+      VALIDATION_MODEL: ${VALIDATION_MODEL}
+      EXTRACTION_MAX_INPUT_CHARS: ${EXTRACTION_MAX_INPUT_CHARS:-24000}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+      EMBEDDING_CACHE_DIR: ${EMBEDDING_CACHE_DIR:-/app/.cache/huggingface}
+      EMBEDDING_LOCAL_FILES_ONLY: ${EMBEDDING_LOCAL_FILES_ONLY:-false}
+      MAX_UPLOAD_SIZE_BYTES: ${MAX_UPLOAD_SIZE_BYTES:-10485760}
+      WEBHOOK_SYNC_TIMEOUT_SECONDS: ${WEBHOOK_SYNC_TIMEOUT_SECONDS:-30}
+      PIPELINE_WORKERS: ${PIPELINE_WORKERS:-4}
+      WEBHOOK_IDEMPOTENCY_ENABLED: ${WEBHOOK_IDEMPOTENCY_ENABLED:-true}
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/contracts
+      CHROMA_PERSIST_DIR: /app/chroma_db
+      ANONYMIZED_TELEMETRY: "FALSE"
+      POLICY_DIR: /app/data/policies
+      LOG_LEVEL: INFO
+      HF_HOME: /app/.cache/huggingface
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: n8n
+    environment:
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Colombo}
+      TZ: ${TZ:-Asia/Colombo}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: ${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS:-true}
+      N8N_RUNNERS_ENABLED: ${N8N_RUNNERS_ENABLED:-true}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  db:
+    image: postgres:16
+    container_name: vendor-contract-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: contracts
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  app-network:
+    driver: bridge
