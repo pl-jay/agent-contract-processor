@@ -75,6 +75,18 @@ services:
     networks:
       - app-network
 
+  pgweb:
+    image: sosedoff/pgweb:latest
+    container_name: vendor-contract-pgweb
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contracts}?sslmode=disable
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+
 volumes:
   postgres_data:
   n8n_data:
