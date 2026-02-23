@@ -10,6 +10,10 @@ from app.services.pipeline_executor import PipelineExecutor
 from app.services.webhook_service import build_deferred_webhook_response, build_webhook_response
 
 
+def _sanitize_log_value(value: str) -> str:
+    return " ".join(value.splitlines()).strip()
+
+
 def build_email_router(
     pipeline_executor: PipelineExecutor,
     upload_dir: Path,
@@ -37,7 +41,7 @@ def build_email_router(
         if suffix != ".pdf":
             raise HTTPException(status_code=400, detail="Only PDF attachments are supported")
 
-        if attachment.content_type not in {"application/pdf", "application/octet-stream"}:
+        if attachment.content_type != "application/pdf":
             raise HTTPException(status_code=400, detail="Invalid attachment content type")
 
         file_id = uuid.uuid4().hex
@@ -53,8 +57,8 @@ def build_email_router(
             "Email webhook accepted",
             extra={
                 "event": "email_webhook_received",
-                "sender": sender,
-                "subject": subject,
+                "sender": _sanitize_log_value(sender),
+                "subject": _sanitize_log_value(subject),
                 "file_path": str(target_path),
                 "idempotency_key_present": bool((x_idempotency_key or "").strip()),
             },
@@ -82,8 +86,8 @@ def build_email_router(
             "Email webhook processed",
             extra={
                 "event": "email_webhook_processed",
-                "sender": sender,
-                "subject": subject,
+                "sender": _sanitize_log_value(sender),
+                "subject": _sanitize_log_value(subject),
                 "contract_id": response.get("contract_id"),
                 "decision": response.get("decision"),
                 "risk_level": response.get("risk_level"),

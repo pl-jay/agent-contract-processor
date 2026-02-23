@@ -6,6 +6,11 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from pydantic import ValidationError
 
+try:
+    import anthropic
+except ModuleNotFoundError:  # pragma: no cover - depends on runtime environment
+    anthropic = None
+
 T = TypeVar("T")
 
 
@@ -42,7 +47,7 @@ def run_structured_llm(
                 extra={"event": parse_failure_event, "attempt": attempt, "error": str(exc)},
             )
         except Exception as exc:
-            if exc.__class__.__name__ == "NotFoundError" and "model" in str(exc):
+            if _is_model_not_found_error(exc):
                 raise error_type(not_found_message) from exc
             raise
 
@@ -76,3 +81,9 @@ def extract_usage(response: Any) -> dict[str, Any]:
         return metadata["token_usage"]
 
     return {}
+
+
+def _is_model_not_found_error(exc: Exception) -> bool:
+    if anthropic is not None and isinstance(exc, anthropic.NotFoundError):
+        return "model" in str(exc).lower()
+    return exc.__class__.__name__ == "NotFoundError" and "model" in str(exc).lower()

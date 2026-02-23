@@ -1,3 +1,5 @@
+import threading
+
 from langchain_chroma import Chroma
 from langchain_core.embeddings import Embeddings
 
@@ -12,6 +14,7 @@ class PolicyRetriever:
         self._settings = settings
         self._embeddings = embeddings
         self._vector_store: Chroma | None = None
+        self._vector_store_lock = threading.Lock()
         self._k = settings.retrieval_k
 
     def retrieve_relevant_policies(self, contract_json: ContractExtraction) -> list[RetrievedPolicy]:
@@ -31,22 +34,26 @@ class PolicyRetriever:
         if self._vector_store is not None:
             return self._vector_store
 
-        try:
-            embeddings = self._embeddings or build_embeddings(self._settings)
-            client_settings = build_chroma_client_settings(self._settings.chroma_persist_dir)
-            self._vector_store = Chroma(
-                collection_name=self._settings.chroma_collection,
-                embedding_function=embeddings,
-                persist_directory=str(self._settings.chroma_persist_dir),
-                client_settings=client_settings,
-            )
-            return self._vector_store
-        except Exception as exc:
-            raise RuntimeError(
-                "Failed to initialize embedding/vector store. "
-                "If running in Docker with restricted network, either fix DNS/network access to "
-                "huggingface.co or pre-cache the model and set EMBEDDING_LOCAL_FILES_ONLY=true."
-            ) from exc
+        with self._vector_store_lock:
+            if self._vector_store is not None:
+                return self._vector_store
+
+            try:
+                embeddings = self._embeddings or build_embeddings(self._settings)
+                client_settings = build_chroma_client_settings(self._settings.chroma_persist_dir)
+                self._vector_store = Chroma(
+                    collection_name=self._settings.chroma_collection,
+                    embedding_function=embeddings,
+                    persist_directory=str(self._settings.chroma_persist_dir),
+                    client_settings=client_settings,
+                )
+                return self._vector_store
+            except Exception as exc:
+                raise RuntimeError(
+                    "Failed to initialize embedding/vector store. "
+                    "If running in Docker with restricted network, either fix DNS/network access to "
+                    "huggingface.co or pre-cache the model and set EMBEDDING_LOCAL_FILES_ONLY=true."
+                ) from exc
 
     @staticmethod
     def _build_query(contract: ContractExtraction) -> str:

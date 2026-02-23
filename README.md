@@ -123,8 +123,9 @@ Set at minimum:
 
 ```bash
 export ANTHROPIC_API_KEY="your_anthropic_key"
-export WEBHOOK_SECRET="change_this_shared_secret"
-export ADMIN_API_KEY="change_this_shared_secret"
+export WEBHOOK_SECRET="set_a_long_random_webhook_secret"
+# Optional (required only for review/admin endpoints):
+export ADMIN_API_KEY="set_a_different_long_random_admin_key"
 export ALLOWED_ORIGINS="http://localhost:5678,http://localhost:3000,http://127.0.0.1:3000"
 
 # Must be model ids enabled for your Anthropic account.
@@ -138,7 +139,10 @@ export EMBEDDING_CACHE_DIR="./.cache/huggingface"
 export EMBEDDING_LOCAL_FILES_ONLY="false"
 export ANONYMIZED_TELEMETRY="FALSE"
 
-export DATABASE_URL="postgresql+psycopg2://postgres:postgres@localhost:5432/contracts"
+export POSTGRES_USER="contracts_app"
+export POSTGRES_PASSWORD="set_a_strong_database_password"
+export POSTGRES_DB="contracts"
+export DATABASE_URL="postgresql+psycopg2://contracts_app:set_a_strong_database_password@localhost:5432/contracts"
 export MAX_UPLOAD_SIZE_BYTES="10485760"
 export WEBHOOK_SYNC_TIMEOUT_SECONDS="30"
 export PIPELINE_WORKERS="4"
@@ -196,7 +200,7 @@ Example with `curl`:
 
 ```bash
 curl -X POST http://localhost:8000/email-webhook \
-  -H "X-API-KEY: change_this_shared_secret" \
+  -H "X-API-KEY: set_a_long_random_webhook_secret" \
   -H "X-Idempotency-Key: msa-2026-001" \
   -F "sender=contracts@vendor.com" \
   -F "subject=Vendor MSA - Renewal" \
@@ -231,9 +235,9 @@ Deferred response (when processing exceeds sync timeout):
 
 ### Human review endpoints
 
-- Require `X-API-KEY` (uses `ADMIN_API_KEY`, or falls back to `WEBHOOK_SECRET`).
+- Require `X-API-KEY` with `ADMIN_API_KEY`.
 - `GET /approved-contracts?limit=50&offset=0`
-- `GET /review-queue`
+- `GET /review-queue?limit=100&offset=0`
 - `POST /approve/{id}`
 - `POST /reject/{id}`
 

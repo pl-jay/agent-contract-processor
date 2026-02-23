@@ -52,12 +52,18 @@ def get_approved_contracts(
 
 
 @router.get("/review-queue")
-def get_review_queue(db: Session = Depends(get_db)) -> list[dict]:
+def get_review_queue(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[dict]:
     items = db.execute(
         select(ReviewQueue, ProcessedContract)
         .join(ProcessedContract, ReviewQueue.contract_id == ProcessedContract.id)
         .where(ReviewQueue.status == "pending")
         .order_by(ReviewQueue.created_at.asc())
+        .offset(offset)
+        .limit(limit)
     ).all()
 
     return [
@@ -79,13 +85,21 @@ def get_review_queue(db: Session = Depends(get_db)) -> list[dict]:
 
 @router.post("/approve/{id}")
 def approve_review(id: int, db: Session = Depends(get_db)) -> dict:
-    review = db.get(ReviewQueue, id)
+    review = db.execute(
+        select(ReviewQueue)
+        .where(ReviewQueue.id == id)
+        .with_for_update()
+    ).scalar_one_or_none()
     if not review:
         raise HTTPException(status_code=404, detail="Review item not found")
     if review.status != "pending":
         raise HTTPException(status_code=400, detail="Review item is not pending")
 
-    contract = db.get(ProcessedContract, review.contract_id)
+    contract = db.execute(
+        select(ProcessedContract)
+        .where(ProcessedContract.id == review.contract_id)
+        .with_for_update()
+    ).scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Associated contract not found")
 
@@ -99,13 +113,21 @@ def approve_review(id: int, db: Session = Depends(get_db)) -> dict:
 
 @router.post("/reject/{id}")
 def reject_review(id: int, db: Session = Depends(get_db)) -> dict:
-    review = db.get(ReviewQueue, id)
+    review = db.execute(
+        select(ReviewQueue)
+        .where(ReviewQueue.id == id)
+        .with_for_update()
+    ).scalar_one_or_none()
     if not review:
         raise HTTPException(status_code=404, detail="Review item not found")
     if review.status != "pending":
         raise HTTPException(status_code=400, detail="Review item is not pending")
 
-    contract = db.get(ProcessedContract, review.contract_id)
+    contract = db.execute(
+        select(ProcessedContract)
+        .where(ProcessedContract.id == review.contract_id)
+        .with_for_update()
+    ).scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Associated contract not found")
 

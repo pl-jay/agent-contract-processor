@@ -38,7 +38,7 @@ def _settings(**overrides: object) -> Settings:
 
 def test_admin_api_key_missing_header_rejected() -> None:
     with pytest.raises(HTTPException) as exc:
-        verify_admin_api_key(request=_request(), x_api_key=None, settings=_settings())
+        verify_admin_api_key(request=_request(), x_api_key=None, settings=_settings(admin_api_key="admin"))
     assert exc.value.status_code == 401
 
 
@@ -48,9 +48,19 @@ def test_admin_api_key_invalid_rejected() -> None:
     assert exc.value.status_code == 401
 
 
-def test_admin_api_key_falls_back_to_webhook_secret() -> None:
+def test_admin_api_key_missing_configuration_returns_500() -> None:
+    with pytest.raises(HTTPException) as exc:
+        verify_admin_api_key(
+            request=_request(),
+            x_api_key="webhook-secret",
+            settings=_settings(admin_api_key=""),
+        )
+    assert exc.value.status_code == 500
+
+
+def test_admin_api_key_accepts_configured_secret_only() -> None:
     verify_admin_api_key(
         request=_request(),
-        x_api_key="webhook-secret",
-        settings=_settings(admin_api_key=""),
+        x_api_key="admin-secret",
+        settings=_settings(admin_api_key="admin-secret"),
     )

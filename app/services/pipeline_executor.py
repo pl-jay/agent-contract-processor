@@ -83,7 +83,7 @@ class PipelineExecutor:
             )
 
     def shutdown(self) -> None:
-        self._pool.shutdown(wait=False, cancel_futures=False)
+        self._pool.shutdown(wait=True, cancel_futures=False)
 
     def _get_or_submit(
         self,

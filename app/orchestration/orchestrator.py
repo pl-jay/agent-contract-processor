@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.extraction_agent import ExtractionAgent
 from app.agents.validation_agent import ValidationAgent
-from app.core.errors import DocumentProcessingError, ExtractionError, ValidationAgentError
 from app.core.schemas import (
     ContractExtraction,
     DocumentMetadata,
@@ -59,10 +58,11 @@ class ContractOrchestrator:
 
     def run(self, sender: str, subject: str, file_path: str | Path) -> dict:
         pipeline_start = time.perf_counter()
+        input_path = Path(file_path)
         state: ContractState = {
             "sender": sender,
             "subject": subject,
-            "file_path": str(file_path),
+            "file_path": str(input_path),
         }
 
         try:
@@ -84,13 +84,15 @@ class ContractOrchestrator:
                 },
             )
             return result
-        except (DocumentProcessingError, ExtractionError, ValidationAgentError, Exception) as exc:
+        except Exception as exc:
             self._logger.exception(
                 "Pipeline failed",
-                extra={"event": "pipeline_failed", "error": str(exc), "file_path": str(file_path)},
+                extra={"event": "pipeline_failed", "error": str(exc), "file_path": str(input_path)},
             )
-            self._persist_failure_log(sender=sender, subject=subject, file_path=str(file_path), error=str(exc))
+            self._persist_failure_log(sender=sender, subject=subject, file_path=str(input_path), error=str(exc))
             raise
+        finally:
+            self._cleanup_uploaded_file(input_path)
 
     def _compile_graph(self):
         graph = StateGraph(ContractState)
@@ -190,3 +192,16 @@ class ContractOrchestrator:
             file_path=file_path,
             error=error,
         )
+
+    def _cleanup_uploaded_file(self, file_path: Path) -> None:
+        try:
+            file_path.unlink(missing_ok=True)
+        except OSError as exc:
+            self._logger.warning(
+                "Failed to delete uploaded file after processing",
+                extra={
+                    "event": "uploaded_file_cleanup_failed",
+                    "file_path": str(file_path),
+                    "error": str(exc),
+                },
+            )

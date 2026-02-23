@@ -1,5 +1,6 @@
 from collections.abc import Generator
 import logging
+import threading
 import time
 
 from sqlalchemy import create_engine
@@ -26,14 +27,17 @@ def get_engine() -> Engine:
 
 
 engine: Engine | None = None
+engine_lock = threading.Lock()
 SessionLocal = sessionmaker(autoflush=False, autocommit=False, expire_on_commit=False)
 
 
 def _ensure_engine() -> Engine:
     global engine
     if engine is None:
-        engine = get_engine()
-        SessionLocal.configure(bind=engine)
+        with engine_lock:
+            if engine is None:
+                engine = get_engine()
+                SessionLocal.configure(bind=engine)
     return engine
 
 
@@ -42,6 +46,9 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

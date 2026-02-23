@@ -1,0 +1,205 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Contract email → webhook\n\n1. **Trigger**: IMAP reads new emails\n2. **Filter**: Subject contains \"Contract\" AND has attachment(s)\n3. **HTTP Request**: POST to backend webhook\n\n**Setup**: Create credential \"Backend API Key\" (HTTP Header Auth) with header name `X-API-KEY` and your secret. Set `BACKEND_URL` in n8n env to override default (e.g. `http://backend:8000`).",
+        "height": 328,
+        "width": 508
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -208
+      ],
+      "id": "06d84345-a9d3-4aed-81e3-53bbd567a53e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "postProcessAction": "nothing",
+        "format": "resolved",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        -48,
+        272
+      ],
+      "id": "a30a6edd-8ac2-4757-be58-48a721859a9e",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "ijU0FQJViReJYMZp",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "acef0b6c-f7a4-479a-b9e9-ed673c6700a3",
+              "leftValue": "={{ $json.headers?.subject ?? '' }}",
+              "rightValue": "Contract",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "b156d446-efa4-43fd-bdf9-3bea242b0fc7",
+              "leftValue": "={{ Object.keys($binary ?? {}).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        272
+      ],
+      "id": "591bbd1a-6266-4582-b6cc-12b64b4cd388",
+      "name": "Filter: Contract with attachment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/email-webhook",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sender",
+              "value": "={{ $json.headers?.from ?? '' }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.headers?.subject ?? '' }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "attachment",
+              "inputDataFieldName": "attachment_0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        272
+      ],
+      "id": "6ee2a8e6-4ac0-49ae-990d-fc987959a650",
+      "name": "POST to Backend Webhook",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XZGvzRZ9Hbb2btcZ",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "err-msg",
+              "name": "error_message",
+              "value": "={{ $error?.message ?? 'Unknown error' }}",
+              "type": "string"
+            },
+            {
+              "id": "err-node",
+              "name": "error_node",
+              "value": "={{ $error?.node ?? $node.name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        272
+      ],
+      "id": "bd56e9fb-f409-4fce-8178-1f60e0a107d4",
+      "name": "Capture Webhook Error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Filter: Contract with attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Contract with attachment": {
+      "main": [
+        [
+          {
+            "node": "POST to Backend Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8bbb6f31-6cc8-4896-98d8-83577a64fe2b",
+  "meta": {
+    "instanceId": "3e762bd4adbb78dc7195367f6f1dad2b71a6e3e87ba33cad48164f62de027262"
+  },
+  "id": "9caAXOJTT3k8oTLQ",
+  "tags": []
+}

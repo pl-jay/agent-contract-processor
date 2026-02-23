@@ -66,7 +66,7 @@ class ValidationAgent:
 
     @staticmethod
     def _extract_policy_threshold(policies: list[RetrievedPolicy]) -> float | None:
-        pattern = re.compile(r"(?i)(?:usd|\\$)\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)")
+        pattern = re.compile(r"(?i)(?:usd|\$)\s*([0-9][0-9,]*(?:\.[0-9]+)?)")
         candidates: list[float] = []
 
         for policy in policies:

@@ -1,0 +1,8 @@
+SUPPLIER AGREEMENT
+
+Vendor Name: Broken File Vendor Ltd
+Contract Start Date: 2026-06-01
+Contract End Date: 2027-05-31
+Total Contract Value: USD 80,000
+
+This file will be intentionally corrupted after PDF creation to test pipeline failure handling.

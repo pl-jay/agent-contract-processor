@@ -1,4 +1,3 @@
-from app.core.config import get_settings
 from app.core.schemas import ContractExtraction, RoutingDecision, ValidationResult
 
 
@@ -7,16 +6,19 @@ def route_contract(
     validation: ValidationResult,
     policy_threshold: float | None = None,
 ) -> RoutingDecision:
-    _ = validation  # preserved signature; routing is deterministic and independent from LLM output
-    threshold = policy_threshold if policy_threshold is not None else get_settings().policy_threshold
     reasons: list[str] = []
 
     if contract.confidence_score < 0.8:
         reasons.append("extraction_confidence_below_threshold")
 
-    if contract.total_value > threshold:
+    if validation.requires_human_review:
+        reasons.append("validation_requires_human_review")
+        reasons.extend([f"validation:{violation}" for violation in validation.policy_violations])
+
+    # Optional explicit threshold override is only used for tests/diagnostics.
+    if policy_threshold is not None and contract.total_value > policy_threshold:
         reasons.append(
-            f"total_value_exceeds_policy_threshold:{contract.total_value}>{threshold}"
+            f"total_value_exceeds_policy_threshold:{contract.total_value}>{policy_threshold}"
         )
 
     if reasons:

@@ -1,0 +1,9 @@
+MASTER SERVICES AGREEMENT
+
+Vendor Name: Apex Data Operations LLC
+Contract Start Date: 2026-04-01
+Contract End Date: 2027-03-31
+Total Contract Value: USD 120,000
+
+Scope:
+Apex Data Operations LLC provides monthly data validation and reporting support.

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Vendor Contract Compliance Agent"
     environment: str = "development"
     log_level: str = "INFO"
+    enforce_strict_env_security: bool = Field(default=False, alias="ENFORCE_STRICT_ENV_SECURITY")
 
     # Required integration/security settings.
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
@@ -67,9 +68,7 @@ class Settings(BaseSettings):
 
     @property
     def resolved_admin_api_key(self) -> str:
-        if self.admin_api_key.strip():
-            return self.admin_api_key.strip()
-        return self.webhook_secret.strip()
+        return self.admin_api_key.strip()
 
     @property
     def resolved_extraction_model(self) -> str:
@@ -110,11 +109,59 @@ class Settings(BaseSettings):
 
         return missing
 
+    def weak_required_env_vars(self) -> list[str]:
+        weak: set[str] = set()
+        weak_values = {
+            "change_this_shared_secret",
+            "your_anthropic_api_key",
+            "your_available_anthropic_model_id",
+            "replace_me",
+            "replace_me_webhook_secret",
+            "replace_me_admin_api_key",
+        }
+
+        value_checks = {
+            "ANTHROPIC_API_KEY": self.anthropic_api_key.strip().lower(),
+            "WEBHOOK_SECRET": self.webhook_secret.strip().lower(),
+            "ADMIN_API_KEY": self.admin_api_key.strip().lower(),
+            "EXTRACTION_MODEL": self.resolved_extraction_model.strip().lower(),
+            "VALIDATION_MODEL": self.resolved_validation_model.strip().lower(),
+            "DATABASE_URL": self.database_url.strip().lower(),
+        }
+
+        for key, value in value_checks.items():
+            if value in weak_values:
+                weak.add(key)
+
+        if "postgres:postgres@" in value_checks["DATABASE_URL"]:
+            weak.add("DATABASE_URL")
+
+        if self.policy_threshold <= 0:
+            weak.add("POLICY_THRESHOLD")
+
+        if (
+            self.webhook_secret.strip()
+            and self.admin_api_key.strip()
+            and self.webhook_secret.strip() == self.admin_api_key.strip()
+        ):
+            weak.add("ADMIN_API_KEY")
+
+        return sorted(weak)
+
     def validate_required(self) -> None:
         missing = self.missing_required_env_vars()
+        weak = self.weak_required_env_vars()
         if missing:
             joined = ", ".join(sorted(missing))
             raise ValueError(f"Missing required environment variables: {joined}")
+        should_enforce_weak_checks = self.enforce_strict_env_security or self.environment.lower() in {
+            "production",
+            "prod",
+            "staging",
+        }
+        if weak and should_enforce_weak_checks:
+            joined = ", ".join(weak)
+            raise ValueError(f"Weak or insecure environment values detected for: {joined}")
 
 
 @lru_cache(maxsize=1)
