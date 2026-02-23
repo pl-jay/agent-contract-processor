@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.extraction_agent import ExtractionAgent
 from app.agents.validation_agent import ValidationAgent
+from app.core.errors import DocumentProcessingError, ExtractionError, ValidationAgentError
 from app.core.schemas import (
     ContractExtraction,
     DocumentMetadata,
@@ -84,6 +85,34 @@ class ContractOrchestrator:
                 },
             )
             return result
+        except (DocumentProcessingError, ExtractionError, ValidationAgentError) as exc:
+            self._logger.exception(
+                "Pipeline failed; routing to review queue fallback",
+                extra={
+                    "event": "pipeline_failed_fallback_review",
+                    "error": str(exc),
+                    "file_path": str(input_path),
+                },
+            )
+            contract_id = self._persistence.persist_failure_as_review(
+                sender=sender,
+                subject=subject,
+                file_path=str(input_path),
+                error=str(exc),
+            )
+            return {
+                "contract_id": contract_id,
+                "validation_result": ValidationResult(
+                    policy_violations=[f"pipeline_error:{exc}"],
+                    risk_level="high",
+                    requires_human_review=True,
+                    rationale="Pipeline failed before full validation; routed for manual review.",
+                ),
+                "routing_decision": RoutingDecision(
+                    route="review_queue",
+                    reasons=["pipeline_error_fallback_to_review"],
+                ),
+            }
         except Exception as exc:
             self._logger.exception(
                 "Pipeline failed",

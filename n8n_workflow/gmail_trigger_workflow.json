@@ -4,7 +4,7 @@
     {
       "parameters": {
         "content": "## Contract email → webhook\n\n1. **Trigger**: IMAP reads new emails\n2. **Filter**: Subject contains \"Contract\" AND has attachment(s)\n3. **HTTP Request**: POST to backend webhook\n\n**Setup**: Create credential \"Backend API Key\" (HTTP Header Auth) with header name `X-API-KEY` and your secret. Set `BACKEND_URL` in n8n env to override default (e.g. `http://backend:8000`).",
-        "height": 328,
+        "height": 280,
         "width": 508
       },
       "type": "n8n-nodes-base.stickyNote",
@@ -133,7 +133,7 @@
           "name": "Header Auth account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -159,10 +159,57 @@
       "typeVersion": 3.4,
       "position": [
         672,
-        272
+        416
       ],
       "id": "bd56e9fb-f409-4fce-8178-1f60e0a107d4",
       "name": "Capture Webhook Error"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc6b391c-d4a7-4867-973c-5bb997b8d24c",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "c5e4e17a-63e0-42c1-81bf-3b601abf6f12",
+              "name": "decision",
+              "value": "={{ $json.decision }}",
+              "type": "string"
+            },
+            {
+              "id": "ac36a338-af5c-4aaf-91da-42201fc9746f",
+              "name": "risk_level",
+              "value": "={{ $json.risk_level }}",
+              "type": "string"
+            },
+            {
+              "id": "cb0f4b92-3a7d-4466-b0a4-dd547d9938f4",
+              "name": "requires_review",
+              "value": "={{ $json.requires_review }}",
+              "type": "boolean"
+            },
+            {
+              "id": "53401325-bd0c-42de-ad15-86d5b0d43f9b",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        144
+      ],
+      "id": "b4962a4e-2142-493a-be52-3fdeba339478",
+      "name": "Success"
     }
   ],
   "pinData": {},
@@ -188,6 +235,24 @@
           }
         ]
       ]
+    },
+    "POST to Backend Webhook": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture Webhook Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -196,7 +261,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "8bbb6f31-6cc8-4896-98d8-83577a64fe2b",
+  "versionId": "62b9de40-c045-4b50-aa53-6af4595e2656",
   "meta": {
     "instanceId": "3e762bd4adbb78dc7195367f6f1dad2b71a6e3e87ba33cad48164f62de027262"
   },

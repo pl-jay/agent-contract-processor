@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.schemas import RoutingDecision, ValidationResult
 from app.db.models import ProcessedContract, ProcessingLog, ReviewQueue
 
 
@@ -92,3 +93,59 @@ class ContractPersistenceService:
                 )
             )
             session.commit()
+
+    def persist_failure_as_review(self, sender: str, subject: str, file_path: str, error: str) -> int:
+        reasons = ["pipeline_error_fallback_to_review"]
+        validation = ValidationResult(
+            policy_violations=[f"pipeline_error:{error}"],
+            risk_level="high",
+            requires_human_review=True,
+            rationale="Pipeline failed before full validation; contract routed to review queue.",
+        )
+        routing = RoutingDecision(route="review_queue", reasons=reasons)
+
+        with self._session_factory() as session:
+            contract = ProcessedContract(
+                sender=sender,
+                subject=subject,
+                file_path=file_path,
+                vendor_name="",
+                contract_start_date="",
+                contract_end_date="",
+                total_value=0.0,
+                payment_terms_days=0,
+                auto_renewal=False,
+                termination_notice_days=0,
+                governing_law="",
+                extraction_confidence_score=0.0,
+                extracted_payload={"error": error},
+                validation_payload=validation.model_dump(mode="json"),
+                routing_payload=routing.model_dump(mode="json"),
+                route_decision=routing.route,
+                status="pending_review",
+            )
+            session.add(contract)
+            session.flush()
+
+            session.add(
+                ReviewQueue(
+                    contract_id=contract.id,
+                    status="pending",
+                    reason="; ".join(reasons),
+                )
+            )
+            session.add(
+                ProcessingLog(
+                    contract_id=contract.id,
+                    stage="pipeline_error",
+                    message="Pipeline failed and was routed to review queue",
+                    payload={
+                        "sender": sender,
+                        "subject": subject,
+                        "file_path": file_path,
+                        "error": error,
+                    },
+                )
+            )
+            session.commit()
+            return int(contract.id)
